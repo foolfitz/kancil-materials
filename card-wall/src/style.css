@@ -1,0 +1,252 @@
+/* 所有樣式都限定在 .kq-wall 之下，不影響宿主頁面。 */
+.kq-wall {
+    --kq-wall-bg: #fffdf7;
+    --kq-wall-fg: #1f2933;
+    --kq-wall-muted: #61707d;
+    --kq-wall-card: #ffffff;
+    --kq-wall-card-back: #eef4ff;
+    --kq-wall-border: #d5dbe1;
+    --kq-wall-accent: #2563eb;
+    /* 與 index.ts 的 GAP 一致 */
+    --kq-wall-gap: 16px;
+
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    height: 100%;
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+    background: var(--kq-wall-bg);
+    color: var(--kq-wall-fg);
+    font-family:
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        'Noto Sans',
+        'Noto Sans TC',
+        sans-serif;
+    /* 越南文字母上方可能疊兩層符號，行高不可過緊（docs/SPEC.md 第 8 節） */
+    line-height: 1.6;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.kq-wall *,
+.kq-wall *::before,
+.kq-wall *::after {
+    box-sizing: inherit;
+}
+
+.kq-wall__progress {
+    color: var(--kq-wall-muted);
+    font-size: clamp(1rem, 1.6vw, 1.5rem);
+    text-align: center;
+}
+
+.kq-wall__progress[hidden] {
+    display: none;
+}
+
+/* 欄數與列數由 index.ts 依張數與可用空間計算 */
+.kq-wall__grid {
+    display: grid;
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: repeat(var(--kq-wall-columns, 3), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--kq-wall-rows, 1), minmax(0, 1fr));
+    gap: var(--kq-wall-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* 空間太小時照寬度排，上下捲動 */
+.kq-wall__grid.is-scrolling {
+    grid-template-rows: none;
+    grid-auto-rows: 12rem;
+    overflow-y: auto;
+}
+
+.kq-wall__cell {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+}
+
+.kq-wall__card {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    perspective: 1600px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+}
+
+.kq-wall__card:focus-visible {
+    outline: none;
+}
+
+.kq-wall__card:focus-visible .kq-wall__side {
+    border-color: var(--kq-wall-accent);
+}
+
+/* 兩面疊在同一格 */
+.kq-wall__inner {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.45s ease;
+}
+
+.kq-wall__inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+/* 不只靠 backface-visibility（有的 WebKit 不支援，背面會鏡像蓋在正面上）：
+   翻到一半、卡片側立時，再把轉到背後的那一面藏起來 */
+.kq-wall__side {
+    transition: visibility 0s linear 0.225s;
+}
+
+.kq-wall__inner:not(.is-flipped) .kq-wall__side--second,
+.kq-wall__inner.is-flipped .kq-wall__side--first {
+    visibility: hidden;
+}
+
+.kq-wall__side {
+    grid-area: 1 / 1;
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    border: 3px solid var(--kq-wall-border);
+    border-radius: 1rem;
+    background: var(--kq-wall-card);
+    box-shadow: 0 4px 12px rgb(31 41 51 / 10%);
+    text-align: center;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+
+.kq-wall__side--second {
+    background: var(--kq-wall-card-back);
+    transform: rotateY(180deg);
+}
+
+/* 卡片內的字與圖依卡片大小縮放（container query 單位）。
+   container-type 與 overflow 不可放在 .kq-wall__side：Safari 會因此不藏背面 */
+.kq-wall__face {
+    container-type: size;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4cqh;
+    min-width: 0;
+    min-height: 0;
+    padding: 6cqmin;
+    overflow: hidden;
+}
+
+.kq-wall__image {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 62cqh;
+    object-fit: contain;
+    border-radius: 0.5rem;
+}
+
+.kq-wall__text {
+    max-width: 100%;
+    font-size: clamp(1rem, 16cqmin, 4.5rem);
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+/* 有圖片時文字小一點，讓整張卡放得下 */
+.kq-wall__image + .kq-wall__text {
+    font-size: clamp(0.9rem, 13cqmin, 3rem);
+}
+
+.kq-wall__romanization {
+    color: var(--kq-wall-muted);
+    font-size: clamp(0.8rem, 8cqmin, 1.75rem);
+}
+
+.kq-wall__audio-only {
+    font-size: clamp(2rem, 30cqmin, 6rem);
+}
+
+.kq-wall__listen {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 85%);
+    font-size: 1.25rem;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.kq-wall__listen[hidden] {
+    display: none;
+}
+
+.kq-wall__controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.kq-wall__button {
+    min-width: 44px;
+    min-height: 48px;
+    padding: 0.5rem 1.25rem;
+    border: 2px solid var(--kq-wall-accent);
+    border-radius: 999px;
+    background: var(--kq-wall-card);
+    color: var(--kq-wall-accent);
+    font: inherit;
+    font-size: 1.125rem;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.kq-wall__button--primary {
+    background: var(--kq-wall-accent);
+    color: #fff;
+}
+
+.kq-wall__button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.kq-wall__button[hidden] {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kq-wall__side {
+        transition: none;
+    }
+
+    .kq-wall__inner {
+        transition: none;
+    }
+}

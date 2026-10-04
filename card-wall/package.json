@@ -1,0 +1,14 @@
+{
+    "name": "@kancil-quiz/game-card-wall",
+    "version": "0.0.0",
+    "private": true,
+    "description": "圖卡牆（docs/SPEC.md 7.5）",
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts",
+        "./meta": "./src/meta.ts"
+    },
+    "dependencies": {
+        "@kancil-quiz/games-sdk": "*"
+    }
+}

@@ -1,0 +1,337 @@
+/* 所有樣式都限定在 .kq-wheel 之下，不影響宿主頁面。 */
+.kq-wheel {
+    --kq-wheel-bg: #fffdf7;
+    --kq-wheel-fg: #1f2933;
+    --kq-wheel-muted: #61707d;
+    --kq-wheel-card: #ffffff;
+    --kq-wheel-card-back: #eef4ff;
+    --kq-wheel-border: #d5dbe1;
+    --kq-wheel-accent: #2563eb;
+    --kq-wheel-pointer: #dc2626;
+
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    height: 100%;
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+    background: var(--kq-wheel-bg);
+    color: var(--kq-wheel-fg);
+    font-family:
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        'Noto Sans',
+        'Noto Sans TC',
+        sans-serif;
+    /* 越南文字母上方可能疊兩層符號，行高不可過緊（docs/SPEC.md 第 8 節） */
+    line-height: 1.6;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.kq-wheel *,
+.kq-wheel *::before,
+.kq-wheel *::after {
+    box-sizing: inherit;
+}
+
+/* 轉盤取可用空間中較短的一邊 */
+.kq-wheel__stage {
+    position: relative;
+    display: grid;
+    flex: 1;
+    min-height: 0;
+    place-items: center;
+    container-type: size;
+}
+
+.kq-wheel__wrap {
+    position: relative;
+    width: min(100cqw, 100cqh);
+    aspect-ratio: 1;
+}
+
+.kq-wheel__wrap[hidden] {
+    display: none;
+}
+
+.kq-wheel__disc {
+    width: 100%;
+    height: 100%;
+    /* 方形轉動時四角會超出圓形，擋到旁邊的按鈕：只留圓形，也不接收點擊（轉盤由中央的按鈕操作） */
+    clip-path: circle(50%);
+    pointer-events: none;
+    transition-property: transform;
+    /* 先快後慢地停下；時間由 index.ts 設定 */
+    transition-timing-function: cubic-bezier(0.12, 0.6, 0.1, 1);
+}
+
+.kq-wheel__svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.kq-wheel__slice path,
+.kq-wheel__slice circle {
+    stroke: #fff;
+    stroke-width: 1;
+}
+
+.kq-wheel__label {
+    fill: var(--kq-wheel-fg);
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.kq-wheel__rim {
+    stroke: var(--kq-wheel-fg);
+    stroke-width: 2;
+}
+
+/* 正上方的指針，尖端朝下指著轉盤 */
+.kq-wheel__pointer {
+    position: absolute;
+    top: -1%;
+    left: 50%;
+    width: 8%;
+    height: 9%;
+    background: var(--kq-wheel-pointer);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    transform: translateX(-50%);
+    filter: drop-shadow(0 2px 2px rgb(0 0 0 / 30%));
+}
+
+.kq-wheel__hub {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 22%;
+    aspect-ratio: 1;
+    border: 4px solid #fff;
+    border-radius: 50%;
+    background: var(--kq-wheel-accent);
+    color: #fff;
+    font: inherit;
+    font-size: clamp(1.25rem, 5cqmin, 3rem);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgb(31 41 51 / 25%);
+    transform: translate(-50%, -50%);
+    touch-action: manipulation;
+}
+
+.kq-wheel__hub:disabled {
+    cursor: default;
+    opacity: 0.85;
+}
+
+.kq-wheel__hub:focus-visible {
+    outline: 4px solid var(--kq-wheel-pointer);
+    outline-offset: 2px;
+}
+
+/* 轉到的卡：蓋在轉盤上 */
+.kq-wheel__overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgb(255 253 247 / 80%);
+    backdrop-filter: blur(2px);
+}
+
+.kq-wheel__overlay[hidden],
+.kq-wheel__empty[hidden] {
+    display: none;
+}
+
+.kq-wheel__result {
+    display: flex;
+    width: min(90cqw, 36rem);
+    height: min(65cqh, 30rem);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    perspective: 1600px;
+    animation: kq-wheel-pop 0.25s ease-out;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+}
+
+.kq-wheel__result:focus-visible {
+    outline: none;
+}
+
+.kq-wheel__result:focus-visible .kq-wheel__side {
+    border-color: var(--kq-wheel-accent);
+}
+
+.kq-wheel__inner {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.45s ease;
+}
+
+.kq-wheel__inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+/* 不只靠 backface-visibility（有的 WebKit 不支援，背面會鏡像蓋在正面上）：
+   翻到一半、卡片側立時，再把轉到背後的那一面藏起來 */
+.kq-wheel__side {
+    transition: visibility 0s linear 0.225s;
+}
+
+.kq-wheel__inner:not(.is-flipped) .kq-wheel__side--second,
+.kq-wheel__inner.is-flipped .kq-wheel__side--first {
+    visibility: hidden;
+}
+
+.kq-wheel__side {
+    grid-area: 1 / 1;
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    border: 4px solid var(--kq-wheel-border);
+    border-radius: 1.5rem;
+    background: var(--kq-wheel-card);
+    box-shadow: 0 8px 24px rgb(31 41 51 / 18%);
+    text-align: center;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+
+.kq-wheel__side--second {
+    background: var(--kq-wheel-card-back);
+    transform: rotateY(180deg);
+}
+
+/* 卡片內的字與圖依卡片大小縮放（container query 單位）。
+   container-type 與 overflow 不可放在 .kq-wheel__side：Safari 會因此不藏背面 */
+.kq-wheel__face {
+    container-type: size;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4cqh;
+    min-width: 0;
+    min-height: 0;
+    padding: 5cqmin;
+    overflow: hidden;
+}
+
+.kq-wheel__image {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 62cqh;
+    object-fit: contain;
+    border-radius: 0.75rem;
+}
+
+.kq-wheel__text {
+    max-width: 100%;
+    font-size: clamp(1.5rem, 16cqmin, 5rem);
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.kq-wheel__image + .kq-wheel__text {
+    font-size: clamp(1.25rem, 11cqmin, 3.5rem);
+}
+
+.kq-wheel__romanization {
+    color: var(--kq-wheel-muted);
+    font-size: clamp(1rem, 7cqmin, 2rem);
+}
+
+.kq-wheel__audio-only {
+    font-size: clamp(3rem, 30cqmin, 8rem);
+}
+
+.kq-wheel__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.kq-wheel__empty-title {
+    margin: 0;
+    font-size: clamp(1.75rem, 6cqmin, 3.5rem);
+    font-weight: 700;
+}
+
+.kq-wheel__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.kq-wheel__status {
+    color: var(--kq-wheel-muted);
+    font-size: clamp(1rem, 1.6vw, 1.5rem);
+}
+
+.kq-wheel__button {
+    min-width: 44px;
+    min-height: 48px;
+    padding: 0.5rem 1.25rem;
+    border: 2px solid var(--kq-wheel-accent);
+    border-radius: 999px;
+    background: var(--kq-wheel-card);
+    color: var(--kq-wheel-accent);
+    font: inherit;
+    font-size: 1.125rem;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.kq-wheel__button--primary {
+    background: var(--kq-wheel-accent);
+    color: #fff;
+}
+
+.kq-wheel__button[hidden] {
+    display: none;
+}
+
+@keyframes kq-wheel-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.85);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kq-wheel__side {
+        transition: none;
+    }
+
+    .kq-wheel__disc,
+    .kq-wheel__inner {
+        transition: none !important;
+    }
+
+    .kq-wheel__result {
+        animation: none;
+    }
+}
