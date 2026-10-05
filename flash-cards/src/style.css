@@ -10,6 +10,9 @@
     --kq-cards-replay: #c2410c;
 
     box-sizing: border-box;
+    /* 版面依遊戲自己的大小決定（手機、平板、投影），不看視窗：下面的 @container 以它為準 */
+    container-type: size;
+    container-name: kq-cards;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -208,6 +211,59 @@
 
 .kq-cards__card.is-entering-prev {
     animation: kq-cards-enter-prev 0.25s ease-out;
+}
+
+/* 手機橫放：畫面很矮，卡片改成填滿剩下的高度、內容縮小，按鈕列才不會被擠到畫面外 */
+@container kq-cards (height < 480px) {
+    .kq-cards {
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .kq-cards__progress {
+        font-size: 0.9rem;
+    }
+
+    .kq-cards__card {
+        flex: 1 1 auto;
+        min-height: 6rem;
+    }
+
+    .kq-cards__side {
+        gap: 0.25rem;
+        padding: 0.5rem 1rem;
+        border-radius: 1rem;
+    }
+
+    .kq-cards__image {
+        max-height: 30cqh;
+    }
+
+    .kq-cards__text {
+        font-size: clamp(1.25rem, 9cqh, 2.5rem);
+    }
+
+    .kq-cards__image + .kq-cards__text {
+        font-size: clamp(1.1rem, 7cqh, 2rem);
+    }
+
+    .kq-cards__romanization {
+        font-size: clamp(0.9rem, 5cqh, 1.25rem);
+    }
+
+    .kq-cards__audio-only {
+        font-size: clamp(2rem, 20cqh, 4rem);
+    }
+
+    .kq-cards__button {
+        min-height: 44px;
+        padding: 0.3rem 1rem;
+        font-size: 1rem;
+    }
+
+    .kq-cards__hint {
+        font-size: 0.85rem;
+    }
 }
 
 @keyframes kq-cards-enter-next {
