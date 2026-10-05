@@ -119,24 +119,55 @@ export function paginate<T>(items: T[], max: number): T[][] {
 }
 
 // 一頁 n 張卡、區域 width × height 時，排幾欄卡片最大。卡片寬高比約 4:5（上面是圖、下面是字）。
+export interface Layout {
+    columns: number;
+    rows: number;
+    cardWidth: number; // 以理想的長寬比（aspect）算出的卡片寬度，用來比較哪種排法的卡片最大
+    cellWidth: number; // 每一格實際的寬與高
+    cellHeight: number;
+}
+
+// 依張數與可用空間找出卡片最大的排法。有給 minimum 時，先在格子夠寬也夠高的排法裡挑
+// （手機橫放時 6 張排成一列太窄，3 欄 2 列的格子雖然比較扁，但每一張都看得清楚）；
+// 沒有一種排法放得下才退回整體最大的那一種，由呼叫端改成可以捲動的版面
 export function bestColumns(
     n: number,
     width: number,
     height: number,
     gap: number,
     aspect = 0.8,
-): { columns: number; rows: number; cardWidth: number } {
-    let best = { columns: 1, rows: Math.max(1, n), cardWidth: 0 };
+    minimum?: { width: number; height: number },
+): Layout {
+    let best: Layout | null = null;
+    let bestFitting: Layout | null = null;
     for (let columns = 1; columns <= Math.max(1, n); columns++) {
         const rows = Math.ceil(n / columns);
         const cellWidth = (width - gap * (columns - 1)) / columns;
         const cellHeight = (height - gap * (rows - 1)) / rows;
         const cardWidth = Math.min(cellWidth, cellHeight * aspect);
-        if (cardWidth > best.cardWidth) {
-            best = { columns, rows, cardWidth };
+        const layout = { columns, rows, cardWidth, cellWidth, cellHeight };
+        if (!best || cardWidth > best.cardWidth) {
+            best = layout;
+        }
+        if (
+            minimum &&
+            cellWidth >= minimum.width &&
+            cellHeight >= minimum.height &&
+            (!bestFitting || cardWidth > bestFitting.cardWidth)
+        ) {
+            bestFitting = layout;
         }
     }
-    return best;
+    return (
+        bestFitting ??
+        best ?? {
+            columns: 1,
+            rows: 1,
+            cardWidth: width,
+            cellWidth: width,
+            cellHeight: height,
+        }
+    );
 }
 
 export function cardRounds(rounds: Round[]): CardRound[] {

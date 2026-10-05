@@ -96,4 +96,27 @@ describe('bestColumns', () => {
             rows: 1,
         });
     });
+
+    it('有最小尺寸時，先挑格子夠寬也夠高的排法', () => {
+        const minimum = { width: 140, height: 110 };
+        // 手機橫放 6 張：排成一列每張只有 123 px 寬，改成 3 欄 2 列
+        expect(bestColumns(6, 820, 254, 16, 0.8, minimum)).toMatchObject({
+            columns: 3,
+            rows: 2,
+        });
+        // 手機直向 6 張：2 欄 3 列，格子接近正方形也算放得下
+        const portrait = bestColumns(6, 351, 531, 16, 0.8, minimum);
+        expect(portrait).toMatchObject({ columns: 2, rows: 3 });
+        expect(portrait.cellWidth).toBeGreaterThanOrEqual(140);
+        expect(portrait.cellHeight).toBeGreaterThanOrEqual(110);
+        // 都放不下時回傳整體最大的排法，由呼叫端改成捲動
+        expect(
+            bestColumns(12, 351, 531, 16, 0.8, minimum).cellWidth,
+        ).toBeLessThan(140);
+        // 沒有最小尺寸時行為不變
+        expect(bestColumns(6, 820, 254, 16)).toMatchObject({
+            columns: 6,
+            rows: 1,
+        });
+    });
 });

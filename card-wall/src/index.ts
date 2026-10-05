@@ -14,8 +14,9 @@ export type { CardWallOptions } from './meta';
 
 // 卡片之間的間距（px），與 style.css 的 --kq-wall-gap 一致
 const GAP = 16;
-// 卡片寬度小於這個值時改成可以捲動的版面，不再硬塞進一個畫面
+// 格子的寬或高小於這些值時改成可以捲動的版面，不再硬塞進一個畫面
 const MIN_CARD_WIDTH = 140;
+const MIN_CARD_HEIGHT = 110;
 
 function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
@@ -202,8 +203,15 @@ function mount(
         if (n === 0 || width === 0 || height === 0) {
             return;
         }
-        const best = bestColumns(n, width, height, GAP);
-        if (best.cardWidth >= MIN_CARD_WIDTH) {
+        const best = bestColumns(n, width, height, GAP, undefined, {
+            width: MIN_CARD_WIDTH,
+            height: MIN_CARD_HEIGHT,
+        });
+        // 格子夠寬也夠高就不捲動；手機上格子比理想的長寬比方或扁一些也算放得下
+        if (
+            best.cellWidth >= MIN_CARD_WIDTH &&
+            best.cellHeight >= MIN_CARD_HEIGHT
+        ) {
             grid.classList.remove('is-scrolling');
             grid.style.setProperty('--kq-wall-columns', String(best.columns));
             grid.style.setProperty('--kq-wall-rows', String(best.rows));
