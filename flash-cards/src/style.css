@@ -7,6 +7,7 @@
     --kq-cards-card-back: #eef4ff;
     --kq-cards-border: #d5dbe1;
     --kq-cards-accent: #2563eb;
+    --kq-cards-replay: #c2410c;
 
     box-sizing: border-box;
     display: flex;
@@ -185,6 +186,14 @@
 
 .kq-cards__button[hidden] {
     display: none;
+}
+
+/* 最後一張的「再玩一次」：顏色與位置都和「下一張」不同 */
+.kq-cards__button--replay {
+    margin-bottom: auto;
+    border-color: var(--kq-cards-replay);
+    background: var(--kq-cards-replay);
+    color: #fff;
 }
 
 .kq-cards__hint {

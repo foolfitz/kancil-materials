@@ -2,7 +2,7 @@ import type { GameModule } from '@kancil-quiz/games-sdk';
 
 export interface SpinWheelOptions {
     startWith: 'front' | 'back';
-    sliceLabel: 'face' | 'number';
+    sliceLabel: 'target' | 'face' | 'number';
     removeAfterSpin: boolean;
     autoPlayAudio: boolean;
 }
@@ -48,10 +48,11 @@ export const meta = {
                 title: '轉盤上顯示',
                 type: 'string',
                 oneOf: [
+                    { const: 'target', title: '目標語（例如印尼語）的文字' },
                     { const: 'face', title: '先顯示那一面的文字' },
                     { const: 'number', title: '編號（轉到才揭曉）' },
                 ],
-                default: 'face',
+                default: 'target',
             },
             removeAfterSpin: {
                 title: '轉到的詞從轉盤拿掉，每個詞只會轉到一次',
@@ -67,7 +68,7 @@ export const meta = {
     },
     defaultOptions: {
         startWith: 'front',
-        sliceLabel: 'face',
+        sliceLabel: 'target',
         removeAfterSpin: true,
         autoPlayAudio: true,
     },

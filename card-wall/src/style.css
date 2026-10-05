@@ -7,6 +7,7 @@
     --kq-wall-card-back: #eef4ff;
     --kq-wall-border: #d5dbe1;
     --kq-wall-accent: #2563eb;
+    --kq-wall-replay: #c2410c;
     /* 與 index.ts 的 GAP 一致 */
     --kq-wall-gap: 16px;
 
@@ -227,8 +228,11 @@
     touch-action: manipulation;
 }
 
-.kq-wall__button--primary {
-    background: var(--kq-wall-accent);
+/* 「再玩一次」：顏色與其他按鈕不同，左邊多留一段距離 */
+.kq-wall__button--replay {
+    margin-inline-start: 1.5rem;
+    border-color: var(--kq-wall-replay);
+    background: var(--kq-wall-replay);
     color: #fff;
 }
 

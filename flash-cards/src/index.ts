@@ -95,11 +95,19 @@ function mount(
     const nextButton = el(
         'button',
         'kq-cards__button kq-cards__button--primary',
+        '下一張 →',
     );
     nextButton.type = 'button';
     controls.append(prevButton, flipButton, nextButton);
+    // 最後一張才出現，放在按鈕列下方、換成橘色：不要和「下一張」在同一個位置，免得一直按下去就重新開始了
+    const replayButton = el(
+        'button',
+        'kq-cards__button kq-cards__button--replay',
+        '↻ 再玩一次',
+    );
+    replayButton.type = 'button';
     const hint = el('p', 'kq-cards__hint', '點卡片翻面，左右滑動可以換卡。');
-    root.append(progress, card, listen, controls, hint);
+    root.append(progress, card, listen, controls, replayButton, hint);
     host.append(root);
 
     // [先顯示的那一面, 翻過來的那一面]
@@ -153,7 +161,9 @@ function mount(
 
         progress.textContent = `第 ${session.index + 1} / ${session.cards.length} 張`;
         prevButton.disabled = session.isFirst;
-        nextButton.textContent = session.isLast ? '完成 ✓' : '下一張 →';
+        nextButton.disabled = session.isLast;
+        replayButton.hidden = !session.isLast;
+        hint.hidden = session.isLast;
         autoPlay();
     }
 
@@ -170,12 +180,9 @@ function mount(
         autoPlay();
     }
 
+    // 最後一張再往後滑或按方向鍵不做事，只有「再玩一次」會重新開始
     function go(step: 1 | -1): void {
         if (paused || finished) {
-            return;
-        }
-        if (step === 1 && session.isLast) {
-            finish();
             return;
         }
         if (step === 1 ? session.next() : session.prev()) {
@@ -184,12 +191,14 @@ function mount(
         }
     }
 
-    function finish(): void {
+    // replay：最後一張的「再玩一次」，宿主不顯示結果頁，直接重新開始（docs/SPEC.md 7.2）
+    function finish(replay = false): void {
         finished = true;
         ctx.audio.stopAll();
         ctx.emit({
             type: 'completed',
             durationMs: Math.round(performance.now() - startedAt),
+            ...(replay ? { replay } : {}),
         });
     }
 
@@ -232,6 +241,11 @@ function mount(
     prevButton.addEventListener('click', () => go(-1));
     flipButton.addEventListener('click', flip);
     nextButton.addEventListener('click', () => go(1));
+    replayButton.addEventListener('click', () => {
+        if (!paused && !finished) {
+            finish(true);
+        }
+    });
 
     function onKey(event: KeyboardEvent): void {
         if (paused || finished) {

@@ -92,13 +92,14 @@ function mount(
     flipAllButton.type = 'button';
     const nextButton = el('button', 'kq-wall__button', '下一頁 →');
     nextButton.type = 'button';
-    const doneButton = el(
+    // 最後一頁才出現，橘色並與其他按鈕隔開，免得當成「下一頁」一直按（卡片要盡量大，所以不另佔一列）
+    const replayButton = el(
         'button',
-        'kq-wall__button kq-wall__button--primary',
-        '完成 ✓',
+        'kq-wall__button kq-wall__button--replay',
+        '↻ 再玩一次',
     );
-    doneButton.type = 'button';
-    controls.append(prevButton, flipAllButton, nextButton, doneButton);
+    replayButton.type = 'button';
+    controls.append(prevButton, flipAllButton, nextButton, replayButton);
     root.append(progress, grid, controls);
     host.append(root);
 
@@ -152,6 +153,8 @@ function mount(
         nextButton.hidden = !many;
         prevButton.disabled = session.isFirstPage;
         nextButton.disabled = session.isLastPage;
+        // 看到最後一頁才能重新開始（docs/SPEC.md 7.2 的 replay）
+        replayButton.hidden = !session.isLastPage;
         flipAllButton.textContent = session.allFlipped
             ? '全部翻回來'
             : '全部翻面';
@@ -257,7 +260,8 @@ function mount(
         }
     }
 
-    function finish(): void {
+    // replay：「再玩一次」，宿主不顯示結果頁，直接重新開始
+    function finish(replay = false): void {
         if (finished) {
             return;
         }
@@ -266,13 +270,18 @@ function mount(
         ctx.emit({
             type: 'completed',
             durationMs: Math.round(performance.now() - startedAt),
+            ...(replay ? { replay } : {}),
         });
     }
 
     prevButton.addEventListener('click', () => go(-1));
     nextButton.addEventListener('click', () => go(1));
     flipAllButton.addEventListener('click', flipAll);
-    doneButton.addEventListener('click', finish);
+    replayButton.addEventListener('click', () => {
+        if (!paused) {
+            finish(true);
+        }
+    });
 
     function onKey(event: KeyboardEvent): void {
         if (paused || finished || isTextInput(event.target)) {

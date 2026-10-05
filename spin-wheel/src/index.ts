@@ -234,6 +234,15 @@ function mount(
         if (options.sliceLabel === 'number') {
             return number;
         }
+        if (options.sliceLabel === 'target') {
+            // 例：教材題組的題目是插圖加中文意思，轉盤上改寫目標語的詞。哪一面都沒有目標語的文字時，同 'face'
+            const target = [card.front, card.back].find(
+                (face) => face.text && face.lang === ctx.language,
+            );
+            if (target?.text) {
+                return target.text;
+            }
+        }
         const [shown] = sides(card);
         return shown.text ?? shown.romanization ?? number;
     }
