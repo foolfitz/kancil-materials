@@ -16,6 +16,8 @@
     width: 100%;
     height: 100%;
     padding: clamp(0.75rem, 2vw, 1.5rem);
+    /* 轉動中的方形轉盤四角會超出畫面，不讓它把頁面撐出水平捲軸（圓形以外的部分本來就看不到） */
+    overflow: hidden;
     background: var(--kq-wheel-bg);
     color: var(--kq-wheel-fg);
     font-family:
