@@ -2,11 +2,11 @@
 
 [Kancil Quiz](https://github.com/foolfitz/kancil-quiz) 內建的互動教材（不計分）：
 
-| 目錄 | 套件 | 教材 |
-|---|---|---|
-| `flash-cards/` | `@kancil-quiz/game-flash-cards` | 字卡 |
-| `card-wall/` | `@kancil-quiz/game-card-wall` | 圖卡牆 |
-| `spin-wheel/` | `@kancil-quiz/game-spin-wheel` | 轉盤 |
+| 目錄           | 套件                            | 教材   |
+| -------------- | ------------------------------- | ------ |
+| `flash-cards/` | `@kancil-quiz/game-flash-cards` | 字卡   |
+| `card-wall/`   | `@kancil-quiz/game-card-wall`   | 圖卡牆 |
+| `spin-wheel/`  | `@kancil-quiz/game-spin-wheel`  | 轉盤   |
 
 計分的遊戲（選擇題、配對）在 [kancil-games](https://github.com/foolfitz/kancil-games)；可以單獨執行的迷宮問答在 [maze-quiz](https://github.com/foolfitz/maze-quiz)。
 
