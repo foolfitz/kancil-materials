@@ -107,7 +107,9 @@ function mount(
     );
     replayButton.type = 'button';
     const hint = el('p', 'kq-cards__hint', '點卡片翻面，左右滑動可以換卡。');
-    root.append(progress, card, listen, controls, replayButton, hint);
+    const layout = el('div', 'kq-cards__layout');
+    layout.append(progress, card, listen, controls, replayButton, hint);
+    root.append(layout);
     host.append(root);
 
     // [先顯示的那一面, 翻過來的那一面]

@@ -13,13 +13,8 @@
     /* 版面依遊戲自己的大小決定（手機、平板、投影），不看視窗：下面的 @container 以它為準 */
     container-type: size;
     container-name: kq-cards;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
     width: 100%;
     height: 100%;
-    padding: clamp(0.75rem, 3vw, 2rem);
     overflow-y: auto;
     background: var(--kq-cards-bg);
     color: var(--kq-cards-fg);
@@ -39,6 +34,16 @@
 .kq-cards *::before,
 .kq-cards *::after {
     box-sizing: inherit;
+}
+
+/* container query 只套用在 container 的後代，所以內距與間距放在裡面這一層，手機的規則才改得到 */
+.kq-cards__layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    min-height: 100%;
+    padding: clamp(0.75rem, 3vw, 2rem);
 }
 
 .kq-cards__progress {
@@ -215,7 +220,7 @@
 
 /* 手機橫放：畫面很矮，卡片改成填滿剩下的高度、內容縮小，按鈕列才不會被擠到畫面外 */
 @container kq-cards (height < 480px) {
-    .kq-cards {
+    .kq-cards__layout {
         gap: 0.5rem;
         padding: 0.5rem 0.75rem;
     }
