@@ -8,7 +8,7 @@
 | `card-wall/`   | `@kancil-quiz/game-card-wall`   | 圖卡牆 |
 | `spin-wheel/`  | `@kancil-quiz/game-spin-wheel`  | 轉盤   |
 
-計分的遊戲（選擇題、配對）在 [kancil-games](https://github.com/foolfitz/kancil-games)；可以單獨執行的迷宮問答在 [maze-quiz](https://github.com/foolfitz/maze-quiz)。
+計分的遊戲（迷宮問答、選擇題、配對、打地鼠、射氣球）在 [kancil-games](https://github.com/foolfitz/kancil-games)。
 
 ## 只能在 Kancil Quiz 裡面使用
 
