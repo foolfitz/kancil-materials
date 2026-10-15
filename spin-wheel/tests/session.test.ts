@@ -1,12 +1,15 @@
-import type { Round } from '@kancil-quiz/games-sdk';
+import type { Face, Round } from '@kancil-quiz/games-sdk';
 import { describe, expect, it } from 'vite-plus/test';
+import { meta, normalizeOptions } from '../src/meta';
 import {
     TURNS,
     WheelSession,
     cardRounds,
     sliceAt,
     targetRotation,
+    wordOf,
 } from '../src/session';
+import type { CardRound } from '../src/session';
 
 function cards(n: number): Round[] {
     return Array.from({ length: n }, (_, i) => ({
@@ -91,5 +94,103 @@ describe('WheelSession', () => {
         expect(again?.firstTime).toBe(false);
         expect(session.slices).toHaveLength(4);
         expect(session.viewedCount).toBe(1);
+    });
+});
+
+function card(front: Face, back: Face): CardRound {
+    return { shape: 'card', entryId: 'e1', front, back };
+}
+
+describe('wordOf', () => {
+    it('用目標語的那一面，連同那一面的發音（教材題組：題目是插圖與中文，答案是印尼語）', () => {
+        expect(
+            wordOf(
+                card(
+                    { image: '/ayah.webp', text: '爸爸', lang: 'zh-TW' },
+                    { text: 'ayah', lang: 'id', audio: '/ayah.mp3' },
+                ),
+                'id',
+            ),
+        ).toEqual({
+            text: 'ayah',
+            romanization: undefined,
+            audio: '/ayah.mp3',
+        });
+    });
+
+    it('目標語在題目那一面也一樣，羅馬拼音一起顯示', () => {
+        expect(
+            wordOf(
+                card(
+                    { text: 'สวัสดี', lang: 'th', romanization: 'sawatdi' },
+                    { text: '你好', lang: 'zh-TW', audio: '/zh.mp3' },
+                ),
+                'th',
+            ),
+        ).toEqual({ text: 'สวัสดี', romanization: 'sawatdi', audio: undefined });
+    });
+
+    it('沒有音檔就沒有發音（只顯示有音檔的 🔊）', () => {
+        expect(
+            wordOf(
+                card(
+                    { text: '爸爸', lang: 'zh-TW' },
+                    { text: 'ayah', lang: 'id' },
+                ),
+                'id',
+            ).audio,
+        ).toBeUndefined();
+    });
+
+    it('詞那一面沒有音檔時，用另一面只有音檔的（題目只有發音）', () => {
+        expect(
+            wordOf(
+                card({ audio: '/ayah.mp3' }, { text: 'ayah', lang: 'id' }),
+                'id',
+            ),
+        ).toEqual({
+            text: 'ayah',
+            romanization: undefined,
+            audio: '/ayah.mp3',
+        });
+    });
+
+    it('哪一面都沒有目標語時（問答組不標語言），用有文字的那一面，題目那一面優先', () => {
+        expect(
+            wordOf(card({ text: 'Apa ini?' }, { text: 'buku' }), 'id').text,
+        ).toBe('Apa ini?');
+        expect(
+            wordOf(card({ image: '/a.webp' }, { text: 'buku' }), 'id').text,
+        ).toBe('buku');
+        expect(
+            wordOf(card({ image: '/a.webp' }, { romanization: 'buku' }), 'id'),
+        ).toEqual({ text: 'buku', romanization: undefined, audio: undefined });
+    });
+
+    it('兩面都沒有文字時沒有詞（轉盤與旁邊顯示編號）', () => {
+        expect(
+            wordOf(card({ image: '/a.webp' }, { audio: '/a.mp3' }), 'id'),
+        ).toEqual({ audio: '/a.mp3' });
+    });
+});
+
+describe('normalizeOptions', () => {
+    it('沒有設定時用預設', () => {
+        expect(normalizeOptions(undefined)).toEqual(meta.defaultOptions);
+    });
+
+    it('0.1 版活動的設定：拿掉的選項略過，先顯示那一面的文字改回目標語', () => {
+        expect(
+            normalizeOptions({
+                startWith: 'back',
+                sliceLabel: 'face',
+                removeAfterSpin: false,
+                autoPlayAudio: true,
+            } as Record<string, unknown>),
+        ).toEqual({ sliceLabel: 'target', removeAfterSpin: false });
+        expect(normalizeOptions({ sliceLabel: 'number' })).toEqual({
+            sliceLabel: 'number',
+            removeAfterSpin: true,
+        });
     });
 });

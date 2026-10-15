@@ -1,6 +1,33 @@
-import type { Round } from '@kancil-quiz/games-sdk';
+import type { Face, Round } from '@kancil-quiz/games-sdk';
 
 export type CardRound = Extract<Round, { shape: 'card' }>;
+
+// 轉盤上與轉到時顯示的詞，以及「🔊」播的發音
+export interface Word {
+    text?: string;
+    romanization?: string;
+    audio?: string;
+}
+
+// 一張卡上要念的詞：目標語（Face.lang 為題組語言）的那一面。哪一面都沒有目標語的文字時
+// （例如問答組，文字不標語言），用有文字的那一面，題目那一面優先。
+// 發音用同一面的音檔；那一面沒有時，用另一面只有音檔、沒有文字的（例如題目只有發音）。
+export function wordOf(card: CardRound, language: string): Word {
+    const faces = [card.front, card.back];
+    const face: Face | undefined =
+        faces.find((f) => f.text && f.lang === language) ??
+        faces.find((f) => f.text) ??
+        faces.find((f) => f.romanization);
+    if (!face) {
+        return { audio: card.front.audio ?? card.back.audio };
+    }
+    const other = face === card.front ? card.back : card.front;
+    return {
+        text: face.text ?? face.romanization,
+        romanization: face.text ? face.romanization : undefined,
+        audio: face.audio ?? (other.text ? undefined : other.audio),
+    };
+}
 
 // 每次至少轉幾圈
 export const TURNS = 5;
@@ -38,7 +65,7 @@ export class WheelSession {
         return this.viewed.size;
     }
 
-    // 轉一次：抽一片並算出停下的角度。上一次轉到的卡還沒關掉時先關掉。轉盤空了回傳 null。
+    // 轉一次：抽一片並算出停下的角度。上一次轉到的詞先拿掉（設定為拿掉時）。轉盤空了回傳 null。
     spin(): SpinResult | null {
         this.dismiss();
         if (this.done) {
@@ -55,7 +82,7 @@ export class WheelSession {
         return { card, index, rotation: this.rotation, firstTime };
     }
 
-    // 關掉轉到的卡。設定為轉到就拿掉時，從轉盤拿掉。
+    // 轉到的詞看完了。設定為轉到就拿掉時，從轉盤拿掉。
     dismiss(): void {
         if (this.landed && this.removeAfterSpin) {
             const landed = this.landed;

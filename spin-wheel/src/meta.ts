@@ -1,16 +1,14 @@
 import type { GameModule } from '@kancil-quiz/games-sdk';
 
 export interface SpinWheelOptions {
-    startWith: 'front' | 'back';
-    sliceLabel: 'target' | 'face' | 'number';
+    sliceLabel: 'target' | 'number';
     removeAfterSpin: boolean;
-    autoPlayAudio: boolean;
 }
 
 // 遊戲的設定資訊，不含執行程式；老師端與伺服器端的遊戲清單（manifest.json）都由此產生。
 export const meta = {
     id: 'spin-wheel',
-    version: '0.1.0',
+    version: '0.2.0',
     title: { 'zh-TW': '轉盤' },
     requires: {
         shape: 'card',
@@ -27,29 +25,13 @@ export const meta = {
         title: '轉盤的設定',
         type: 'object',
         additionalProperties: false,
-        required: [
-            'startWith',
-            'sliceLabel',
-            'removeAfterSpin',
-            'autoPlayAudio',
-        ],
+        required: ['sliceLabel', 'removeAfterSpin'],
         properties: {
-            startWith: {
-                title: '轉到時先顯示哪一面',
-                description: '點卡片翻面，看另一面。',
-                type: 'string',
-                oneOf: [
-                    { const: 'front', title: '題目那一面' },
-                    { const: 'back', title: '答案那一面' },
-                ],
-                default: 'front',
-            },
             sliceLabel: {
                 title: '轉盤上顯示',
                 type: 'string',
                 oneOf: [
-                    { const: 'target', title: '目標語（例如印尼語）的文字' },
-                    { const: 'face', title: '先顯示那一面的文字' },
+                    { const: 'target', title: '詞（目標語，例如印尼語）' },
                     { const: 'number', title: '編號（轉到才揭曉）' },
                 ],
                 default: 'target',
@@ -59,17 +41,24 @@ export const meta = {
                 type: 'boolean',
                 default: true,
             },
-            autoPlayAudio: {
-                title: '有發音的那一面出現時自動播放',
-                type: 'boolean',
-                default: true,
-            },
         },
     },
     defaultOptions: {
-        startWith: 'front',
         sliceLabel: 'target',
         removeAfterSpin: true,
-        autoPlayAudio: true,
     },
 } satisfies Omit<GameModule<SpinWheelOptions>, 'mount'>;
+
+// 活動存的設定再檢查一次。0.1 版的活動另有 startWith、autoPlayAudio（已不用，略過），
+// sliceLabel 可能是 'face'（先顯示那一面的文字，已拿掉），改用預設。
+export function normalizeOptions(
+    raw: Partial<Record<keyof SpinWheelOptions, unknown>> | undefined,
+): SpinWheelOptions {
+    return {
+        sliceLabel: raw?.sliceLabel === 'number' ? 'number' : 'target',
+        removeAfterSpin:
+            typeof raw?.removeAfterSpin === 'boolean'
+                ? raw.removeAfterSpin
+                : meta.defaultOptions.removeAfterSpin,
+    };
+}

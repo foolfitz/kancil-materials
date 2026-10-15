@@ -1,14 +1,13 @@
 import type {
-    Face,
     GameContext,
     GameInstance,
     GameModule,
 } from '@kancil-quiz/games-sdk';
 import { graphemes } from '@kancil-quiz/text';
-import { meta } from './meta';
+import { meta, normalizeOptions } from './meta';
 import type { SpinWheelOptions } from './meta';
-import { WheelSession, cardRounds } from './session';
-import type { CardRound, SpinResult } from './session';
+import { WheelSession, cardRounds, wordOf } from './session';
+import type { CardRound, SpinResult, Word } from './session';
 import './style.css';
 
 export type { SpinWheelOptions } from './meta';
@@ -31,7 +30,12 @@ const COLORS = [
     '#fbcfe8',
 ];
 // 全形字（中文、日文假名、韓文等）約 1 個字寬，其他約 0.6 個
-const WIDE = /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/u;
+const WIDE = /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/u;
+// 停下後，轉到的那一片先亮一下，再跳出放大的詞（毫秒）
+const LANDED_MS = 400;
+// 放大的詞的字級（px）：最大是放詞的地方高度的幾成，最小多少
+const WORD_HEIGHT = 0.6;
+const WORD_MIN = 18;
 
 function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
@@ -55,38 +59,6 @@ function svg<K extends keyof SVGElementTagNameMap>(
         node.setAttribute(name, String(value));
     }
     return node;
-}
-
-function renderFace(face: Face): HTMLElement[] {
-    const parts: HTMLElement[] = [];
-    if (face.image) {
-        const img = el('img', 'kq-wheel__image');
-        img.src = face.image;
-        img.alt = face.text ?? '';
-        img.draggable = false;
-        img.addEventListener('error', () => img.remove(), { once: true });
-        parts.push(img);
-    }
-    if (face.text) {
-        parts.push(el('span', 'kq-wheel__text', face.text));
-    }
-    if (face.romanization) {
-        parts.push(el('span', 'kq-wheel__romanization', face.romanization));
-    }
-    if (parts.length === 0 && face.audio) {
-        const icon = el('span', 'kq-wheel__audio-only', '🔊');
-        icon.setAttribute('aria-label', '發音');
-        parts.push(icon);
-    }
-    return parts;
-}
-
-// 卡片一面的內容。縮放字與圖用的 container 放在這一層，不放在翻面的那一層：
-// Safari 中翻面的元素加上 container-type 或 overflow 後，背面不會藏起來
-function faceContent(face: Face): HTMLElement {
-    const content = el('div', 'kq-wheel__face');
-    content.append(...renderFace(face));
-    return content;
 }
 
 // 從正上方順時針 angle 度、半徑 r 的點
@@ -131,15 +103,21 @@ function mount(
     host: HTMLElement,
     ctx: GameContext<SpinWheelOptions>,
 ): GameInstance {
-    const options = { ...meta.defaultOptions, ...ctx.options };
+    const options = normalizeOptions(ctx.options);
     const cards = cardRounds(ctx.rounds);
+    const words = new Map<CardRound, Word>(
+        cards.map((card) => [card, wordOf(card, ctx.language)]),
+    );
     const session = new WheelSession(cards, ctx.rng, options.removeAfterSpin);
     const startedAt = performance.now();
     let paused = false;
     let finished = false;
     let spinning = false;
-    let flipped = false;
     let spinTimer: ReturnType<typeof setTimeout> | undefined;
+    // 目前畫在轉盤上的扇形與顏色，順序同 session.slices
+    let groups: SVGGElement[] = [];
+    let colors: string[] = [];
+    let landedAudio: string | undefined;
 
     const root = el('div', 'kq-wheel');
     root.lang = ctx.language;
@@ -159,17 +137,21 @@ function mount(
     hub.type = 'button';
     wrap.append(disc, pointer, hub);
 
-    // 轉到的卡
-    const overlay = el('div', 'kq-wheel__overlay');
-    overlay.hidden = true;
-    const result = el('button', 'kq-wheel__result');
-    result.type = 'button';
-    const inner = el('div', 'kq-wheel__inner');
-    const first = el('div', 'kq-wheel__side kq-wheel__side--first');
-    const second = el('div', 'kq-wheel__side kq-wheel__side--second');
-    inner.append(first, second);
-    result.append(inner);
-    const resultControls = el('div', 'kq-wheel__controls');
+    // 轉到的詞：蓋在轉盤上的 modal，只有放大的詞，不翻面
+    const modal = el('div', 'kq-wheel__modal');
+    modal.hidden = true;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-label', '轉到的詞');
+    const card = el('div', 'kq-wheel__card');
+    const wordBox = el('div', 'kq-wheel__word');
+    const wordInner = el('div', 'kq-wheel__word-inner');
+    const wordText = el('span', 'kq-wheel__word-text');
+    const romanization = el('span', 'kq-wheel__romanization');
+    wordInner.append(wordText, romanization);
+    wordBox.append(wordInner);
+    card.append(wordBox);
+    const modalControls = el('div', 'kq-wheel__controls');
+    // 有音檔才出現
     const listen = el('button', 'kq-wheel__button', '🔊 聽發音');
     listen.type = 'button';
     const back = el('button', 'kq-wheel__button', '回到轉盤');
@@ -180,8 +162,8 @@ function mount(
         '再轉一次',
     );
     again.type = 'button';
-    resultControls.append(listen, back, again);
-    overlay.append(result, resultControls);
+    modalControls.append(listen, back, again);
+    modal.append(card, modalControls);
 
     // 全部轉完
     const empty = el('div', 'kq-wheel__empty');
@@ -195,7 +177,7 @@ function mount(
     emptyRestart.type = 'button';
     empty.append(emptyTitle, emptyRestart);
 
-    stage.append(wrap, empty, overlay);
+    stage.append(wrap, empty, modal);
 
     const footer = el('div', 'kq-wheel__controls');
     const status = el('span', 'kq-wheel__status');
@@ -207,50 +189,22 @@ function mount(
     root.append(stage, footer);
     host.append(root);
 
-    // [轉到時先顯示的那一面, 翻過來的那一面]
-    function sides(card: CardRound): [Face, Face] {
-        return options.startWith === 'back'
-            ? [card.back, card.front]
-            : [card.front, card.back];
-    }
-
-    function visibleFace(): Face {
-        if (!session.landed) {
-            return {};
-        }
-        const [shown, hidden] = sides(session.landed);
-        return flipped ? hidden : shown;
-    }
-
-    function play(face: Face): void {
-        ctx.audio.stopAll();
-        if (face.audio && !paused) {
-            void ctx.audio.play(face.audio).catch(() => undefined);
-        }
+    function number(card: CardRound): string {
+        return String(cards.indexOf(card) + 1);
     }
 
     function label(card: CardRound): string {
-        const number = String(cards.indexOf(card) + 1);
-        if (options.sliceLabel === 'number') {
-            return number;
-        }
-        if (options.sliceLabel === 'target') {
-            // 例：教材題組的題目是插圖加中文意思，轉盤上改寫目標語的詞。哪一面都沒有目標語的文字時，同 'face'
-            const target = [card.front, card.back].find(
-                (face) => face.text && face.lang === ctx.language,
-            );
-            if (target?.text) {
-                return target.text;
-            }
-        }
-        const [shown] = sides(card);
-        return shown.text ?? shown.romanization ?? number;
+        return options.sliceLabel === 'number'
+            ? number(card)
+            : (words.get(card)?.text ?? number(card));
     }
 
     function drawWheel(): void {
         const n = session.slices.length;
         const slice = 360 / Math.max(n, 1);
         const children: SVGElement[] = [];
+        groups = [];
+        colors = [];
         // 扇形中央（半徑約 0.6 處）的寬度，限制字級
         const width = 2 * 0.6 * RADIUS * Math.sin((Math.PI * slice) / 360);
         const maxSize = Math.min(16, n === 1 ? 16 : width * 0.7);
@@ -295,6 +249,8 @@ function mount(
             text.textContent = fitted.text;
             group.append(text);
             children.push(group);
+            groups.push(group);
+            colors.push(color);
         });
         children.push(
             svg('circle', {
@@ -318,68 +274,87 @@ function mount(
         doneButton.classList.toggle('kq-wheel__button--primary', session.done);
     }
 
-    function showResult(spin: SpinResult): void {
-        flipped = false;
-        const [shown, hidden] = sides(spin.card);
-        first.replaceChildren(faceContent(shown));
-        second.replaceChildren(faceContent(hidden));
-        updateFlip();
-        overlay.dataset.entryId = spin.card.entryId;
-        overlay.hidden = false;
+    // 放大的詞用放得下的最大字級。單字不從中間斷開，最小字級還放不下時才斷
+    function fitWord(): void {
+        const height = wordBox.clientHeight;
+        if (modal.hidden || height === 0) {
+            return;
+        }
+        wordInner.classList.remove('is-tight');
+        // 單字比寬度長時，詞（置中的 flex 項目）會比外框寬
+        const fits = () =>
+            wordInner.offsetHeight <= height &&
+            Math.max(wordText.offsetWidth, romanization.offsetWidth) <=
+                wordInner.clientWidth;
+        let size = Math.max(WORD_MIN, height * WORD_HEIGHT);
+        wordInner.style.fontSize = `${size}px`;
+        while (size > WORD_MIN && !fits()) {
+            size = Math.max(WORD_MIN, size * 0.9);
+            wordInner.style.fontSize = `${size}px`;
+        }
+        if (!fits()) {
+            wordInner.classList.add('is-tight');
+        }
+    }
+
+    // 停下後：轉到的那一片亮著、其他變暗
+    function markLanded(spun: SpinResult): void {
+        groups[spun.index]?.classList.add('is-landed');
+        wheel.classList.add('has-landed');
+    }
+
+    function clearLanded(): void {
+        groups.forEach((group) => group.classList.remove('is-landed'));
+        wheel.classList.remove('has-landed');
+    }
+
+    // 跳出放大的詞。發音不自動播放：學生先念，再按「🔊 聽發音」對答案
+    function showWord(spun: SpinResult): void {
+        const word = words.get(spun.card) ?? {};
+        card.style.setProperty('--kq-wheel-landed', colors[spun.index]);
+        modal.dataset.entryId = spun.card.entryId;
+        wordText.textContent = word.text ?? number(spun.card);
+        romanization.textContent = word.romanization ?? '';
+        romanization.hidden = !word.romanization;
+        landedAudio = word.audio;
+        listen.hidden = !landedAudio;
         // 最後一個詞：再轉一次就沒有了
         again.textContent =
             session.removeAfterSpin && session.slices.length === 1
                 ? '繼續'
                 : '再轉一次';
-        if (spin.firstTime) {
-            ctx.emit({ type: 'viewed', entryId: spin.card.entryId });
+        modal.hidden = false;
+        fitWord();
+        if (spun.firstTime) {
+            ctx.emit({ type: 'viewed', entryId: spun.card.entryId });
         }
-        if (options.autoPlayAudio) {
-            play(visibleFace());
-        }
-        result.focus();
+        again.focus();
     }
 
-    function updateFlip(): void {
-        inner.classList.toggle('is-flipped', flipped);
-        first.setAttribute('aria-hidden', String(flipped));
-        second.setAttribute('aria-hidden', String(!flipped));
-        listen.hidden = !visibleFace().audio;
-    }
-
-    function flip(): void {
-        if (paused || finished || !session.landed) {
-            return;
-        }
-        flipped = !flipped;
-        updateFlip();
-        if (options.autoPlayAudio) {
-            play(visibleFace());
-        } else {
-            ctx.audio.stopAll();
-        }
-    }
-
-    // 關掉轉到的卡，回到轉盤；設定為拿掉時重畫轉盤
-    function closeResult(): void {
-        overlay.hidden = true;
+    function closeWord(): void {
+        modal.hidden = true;
         ctx.audio.stopAll();
-        const before = session.slices.length;
-        session.dismiss();
-        if (session.slices.length !== before) {
-            drawWheel();
+    }
+
+    function playLanded(): void {
+        ctx.audio.stopAll();
+        if (landedAudio && !paused) {
+            void ctx.audio.play(landedAudio).catch(() => undefined);
         }
-        updateControls();
     }
 
     function spin(): void {
         if (paused || finished || spinning) {
             return;
         }
-        if (!overlay.hidden) {
-            closeResult();
-        }
+        closeWord();
+        clearLanded();
+        // 上一次轉到的詞在這時拿掉（設定為拿掉時）
+        const before = session.slices.length;
         const spun = session.spin();
+        if (session.slices.length !== before) {
+            drawWheel();
+        }
         if (!spun) {
             updateControls();
             return;
@@ -394,9 +369,12 @@ function mount(
         wrap.dataset.rotation = String(spun.rotation);
         spinTimer = setTimeout(
             () => {
-                spinning = false;
-                updateControls();
-                showResult(spun);
+                markLanded(spun);
+                spinTimer = setTimeout(() => {
+                    spinning = false;
+                    updateControls();
+                    showWord(spun);
+                }, LANDED_MS);
             },
             instant ? 0 : SPIN_MS + 100,
         );
@@ -406,8 +384,7 @@ function mount(
         if (spinning) {
             return;
         }
-        overlay.hidden = true;
-        ctx.audio.stopAll();
+        closeWord();
         session.restart();
         drawWheel();
         updateControls();
@@ -427,28 +404,40 @@ function mount(
     }
 
     hub.addEventListener('click', spin);
-    result.addEventListener('click', flip);
-    listen.addEventListener('click', () => play(visibleFace()));
-    back.addEventListener('click', closeResult);
+    listen.addEventListener('click', playLanded);
+    back.addEventListener('click', closeWord);
     again.addEventListener('click', spin);
+    // 點 modal 的空白處（詞以外）回到轉盤
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeWord();
+        }
+    });
     emptyRestart.addEventListener('click', restart);
     restartButton.addEventListener('click', restart);
     doneButton.addEventListener('click', finish);
 
     function onKey(event: KeyboardEvent): void {
-        if (paused || finished || isControl(event.target)) {
+        if (paused || finished) {
+            return;
+        }
+        if (event.key === 'Escape' && !modal.hidden) {
+            closeWord();
+            return;
+        }
+        if (isControl(event.target)) {
             return;
         }
         if (event.key === ' ' || event.key === 'Enter') {
             event.preventDefault();
-            if (overlay.hidden) {
-                spin();
-            } else {
-                flip();
-            }
+            spin();
         }
     }
     document.addEventListener('keydown', onKey);
+
+    // 畫面大小改變（轉向、調整視窗）時，放大的詞跟著調整字級
+    const resize = new ResizeObserver(() => fitWord());
+    resize.observe(wordBox);
 
     ctx.emit({ type: 'started' });
     if (cards.length > 0) {
@@ -461,6 +450,7 @@ function mount(
     return {
         destroy() {
             clearTimeout(spinTimer);
+            resize.disconnect();
             document.removeEventListener('keydown', onKey);
             ctx.audio.stopAll();
             root.remove();

@@ -4,7 +4,6 @@
     --kq-wheel-fg: #1f2933;
     --kq-wheel-muted: #61707d;
     --kq-wheel-card: #ffffff;
-    --kq-wheel-card-back: #eef4ff;
     --kq-wheel-border: #d5dbe1;
     --kq-wheel-accent: #2563eb;
     --kq-wheel-pointer: #dc2626;
@@ -54,7 +53,9 @@
     aspect-ratio: 1;
 }
 
-.kq-wheel__wrap[hidden] {
+.kq-wheel__wrap[hidden],
+.kq-wheel__modal[hidden],
+.kq-wheel__empty[hidden] {
     display: none;
 }
 
@@ -76,10 +77,19 @@
     overflow: visible;
 }
 
+.kq-wheel__slice {
+    transition: opacity 0.3s ease;
+}
+
 .kq-wheel__slice path,
 .kq-wheel__slice circle {
     stroke: #fff;
     stroke-width: 1;
+}
+
+/* 停下後，轉到的那一片以外變暗 */
+.kq-wheel__svg.has-landed .kq-wheel__slice:not(.is-landed) {
+    opacity: 0.3;
 }
 
 .kq-wheel__label {
@@ -135,8 +145,8 @@
     outline-offset: 2px;
 }
 
-/* 轉到的卡：蓋在轉盤上 */
-.kq-wheel__overlay {
+/* 轉到的詞：蓋在轉盤上的 modal，詞的底色同轉到的那一片 */
+.kq-wheel__modal {
     position: absolute;
     inset: 0;
     display: flex;
@@ -145,126 +155,58 @@
     justify-content: center;
     gap: 1rem;
     padding: 1rem;
-    background: rgb(255 253 247 / 80%);
+    background: rgb(255 253 247 / 75%);
     backdrop-filter: blur(2px);
 }
 
-.kq-wheel__overlay[hidden],
-.kq-wheel__empty[hidden] {
-    display: none;
-}
-
-.kq-wheel__result {
+.kq-wheel__card {
     display: flex;
-    width: min(90cqw, 36rem);
-    height: min(65cqh, 30rem);
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-    perspective: 1600px;
+    width: min(92cqw, 44rem);
+    height: min(60cqh, 26rem, 70cqw);
+    padding: 1rem 1.5rem;
+    border: 4px solid var(--kq-wheel-fg);
+    border-radius: 1.5rem;
+    background: var(--kq-wheel-landed, var(--kq-wheel-card));
+    box-shadow: 0 8px 24px rgb(31 41 51 / 18%);
     animation: kq-wheel-pop 0.25s ease-out;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: manipulation;
 }
 
-.kq-wheel__result:focus-visible {
-    outline: none;
-}
-
-.kq-wheel__result:focus-visible .kq-wheel__side {
-    border-color: var(--kq-wheel-accent);
-}
-
-.kq-wheel__inner {
+.kq-wheel__word {
     display: grid;
     flex: 1;
-    min-width: 0;
-    transform-style: preserve-3d;
-    transition: transform 0.45s ease;
-}
-
-.kq-wheel__inner.is-flipped {
-    transform: rotateY(180deg);
-}
-
-/* 不只靠 backface-visibility（有的 WebKit 不支援，背面會鏡像蓋在正面上）：
-   翻到一半、卡片側立時，再把轉到背後的那一面藏起來 */
-.kq-wheel__side {
-    transition: visibility 0s linear 0.225s;
-}
-
-.kq-wheel__inner:not(.is-flipped) .kq-wheel__side--second,
-.kq-wheel__inner.is-flipped .kq-wheel__side--first {
-    visibility: hidden;
-}
-
-.kq-wheel__side {
-    grid-area: 1 / 1;
-    display: grid;
+    /* 欄寬不可被長的詞撐開，fitWord() 才量得出放不下 */
+    grid-template-columns: minmax(0, 1fr);
+    align-self: stretch;
     min-width: 0;
     min-height: 0;
-    border: 4px solid var(--kq-wheel-border);
-    border-radius: 1.5rem;
-    background: var(--kq-wheel-card);
-    box-shadow: 0 8px 24px rgb(31 41 51 / 18%);
+    place-items: center;
+    overflow: hidden;
     text-align: center;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
 }
 
-.kq-wheel__side--second {
-    background: var(--kq-wheel-card-back);
-    transform: rotateY(180deg);
-}
-
-/* 卡片內的字與圖依卡片大小縮放（container query 單位）。
-   container-type 與 overflow 不可放在 .kq-wheel__side：Safari 會因此不藏背面 */
-.kq-wheel__face {
-    container-type: size;
+.kq-wheel__word-inner {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 4cqh;
-    min-width: 0;
-    min-height: 0;
-    padding: 5cqmin;
-    overflow: hidden;
-}
-
-.kq-wheel__image {
-    display: block;
-    flex: 1 1 auto;
-    min-height: 0;
-    max-width: 100%;
-    max-height: 62cqh;
-    object-fit: contain;
-    border-radius: 0.75rem;
-}
-
-.kq-wheel__text {
-    max-width: 100%;
-    font-size: clamp(1.5rem, 16cqmin, 5rem);
+    width: 100%;
     font-weight: 700;
     line-height: 1.4;
+    overflow-wrap: normal;
+}
+
+/* 最小的字級還放不下時，長的詞才從中間斷開 */
+.kq-wheel__word-inner.is-tight {
     overflow-wrap: anywhere;
 }
 
-.kq-wheel__image + .kq-wheel__text {
-    font-size: clamp(1.25rem, 11cqmin, 3.5rem);
+.kq-wheel__romanization[hidden] {
+    display: none;
 }
 
 .kq-wheel__romanization {
     color: var(--kq-wheel-muted);
-    font-size: clamp(1rem, 7cqmin, 2rem);
-}
-
-.kq-wheel__audio-only {
-    font-size: clamp(3rem, 30cqmin, 8rem);
+    font-size: 0.45em;
+    font-weight: 400;
 }
 
 .kq-wheel__empty {
@@ -324,16 +266,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .kq-wheel__side {
-        transition: none;
-    }
-
     .kq-wheel__disc,
-    .kq-wheel__inner {
+    .kq-wheel__slice {
         transition: none !important;
     }
 
-    .kq-wheel__result {
+    .kq-wheel__card {
         animation: none;
     }
 }
